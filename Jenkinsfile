@@ -2,47 +2,61 @@ pipeline {
     agent any
 
     environment {
-        DB_DATABASE = 'fake'
-        DB_USERNAME = 'root'
-        DB_PASSWORD = 'Majestic@123'
+        PHP_VERSION = "8.2"
+        DB_DATABASE = "fake"
+        DB_USERNAME = "root"
+        DB_PASSWORD = "Majestic@123"
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/SwatiRauthan02/jenkins.git'
+                git branch: 'main', url: ' https://github.com/SwatiRauthan02/jenkins.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                sh 'composer install --no-dev --prefer-dist'
+                sh 'composer install --no-interaction --prefer-dist --optimize-autoloader'
             }
         }
 
-        stage('Run Migrations') {
+        stage('Setup Environment') {
             steps {
-                sh 'php artisan migrate --force'
+                sh 'cp .env.example .env'
+                sh 'php artisan key:generate'
+            }
+        }
+
+        stage('Run Migrations & Seeds') {
+            steps {
+                sh 'php artisan migrate --seed'
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'php artisan test'
+                sh './vendor/bin/phpunit'
             }
         }
 
-        stage('Deploy Application') {
+        stage('Deploy') {
             steps {
-                sh 'rsync -avz --exclude "vendor" . user@localhost:/var/www/jenkins'
+                sshagent(['your-server-credentials']) {
+                    sh '''
+                        ssh user@your-server "cd /var/www/html/jenkins && git pull origin main && composer install --no-dev && php artisan migrate --force && php artisan config:cache"
+                    '''
+                }
             }
         }
+    }
 
-        stage('Clear Cache') {
-            steps {
-                sh 'php artisan cache:clear'
-                sh 'php artisan config:clear'
-            }
+    post {
+        success {
+            echo "Deployment successful!"
+        }
+        failure {
+            echo "Build failed!"
         }
     }
 }
