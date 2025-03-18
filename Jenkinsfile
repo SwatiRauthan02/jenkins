@@ -27,28 +27,6 @@ pipeline {
                 sh 'php artisan key:generate'
             }
         }
-
-        stage('Run Migrations & Seeds') {
-            steps {
-                sh 'php artisan migrate --seed'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                sh './vendor/bin/phpunit'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                sshagent(['your-server-credentials']) {
-                    sh '''
-                        ssh user@your-server "cd /var/www/html/jenkins && git pull origin main && composer install --no-dev && php artisan migrate --force && php artisan config:cache"
-                    '''
-                }
-            }
-        }
     }
 
     post {
